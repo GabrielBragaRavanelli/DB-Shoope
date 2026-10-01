@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Ocorrências - AJBorges Logística</title>
+    <!-- CSS Próprio -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Font Inter do Google -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- SheetJS (Lê Excel .xlsx diretamente no navegador) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Chart.js para os gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- HEADER -->
+    <header class="topbar">
+        <div class="topbar-container">
+            <div class="brand">
+                <div class="brand-logo">AJB</div>
+                <div class="brand-info">
+                    <h1>AJBorges • Gestão de Ocorrências</h1>
+                    <p>Monitoramento de Viagens, Atrasos e Operações Linehaul</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <span id="data-status-badge" class="badge-status-offline">Aguardando Planilha</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <!-- ÁREA DE CARREGAMENTO DE ARQUIVO -->
+        <section class="upload-section">
+            <div class="upload-card" id="drop-zone">
+                <div class="upload-icon">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                </div>
+                <div class="upload-texts">
+                    <h3>Carregar Planilha do Excel (.xlsx / .csv)</h3>
+                    <p>Arraste e solte o arquivo <strong>DBLH_AJ BORGES</strong> aqui ou clique no botão abaixo</p>
+                </div>
+                <label for="excel-file-input" class="btn-primary">
+                    <span>Selecionar Planilha</span>
+                    <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" style="display: none;">
+                </label>
+            </div>
+        </section>
+
+        <!-- INDICADORES (KPIS) -->
+        <section class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-title">Total de Ocorrências</span>
+                    <span class="kpi-icon icon-danger">🚨</span>
+                </div>
+                <div class="kpi-value" id="kpi-total-ocorrencias">0</div>
+                <div class="kpi-sub">Viagens com desvios ou paradas</div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-title">Atrasos (DELAY)</span>
+                    <span class="kpi-icon icon-warning">⏱️</span>
+                </div>
+                <div class="kpi-value" id="kpi-total-delay">0</div>
+                <div class="kpi-sub">Viagens fora da janela de entrega</div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-title">Paradas Excedidas / Abastecimento</span>
+                    <span class="kpi-icon icon-info">⛽</span>
+                </div>
+                <div class="kpi-value" id="kpi-total-paradas">0</div>
+                <div class="kpi-sub">Paradas não programadas ou longas</div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-title">Motoristas com Ocorrência</span>
+                    <span class="kpi-icon icon-neutral">👤</span>
+                </div>
+                <div class="kpi-value" id="kpi-total-motoristas">0</div>
+                <div class="kpi-sub">Condutores envolvidos nas viagens</div>
+            </div>
+        </section>
+
+        <!-- SEÇÃO DE GRÁFICOS -->
+        <section class="charts-grid">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3>Principais Motivos de Ocorrências</h3>
+                </div>
+                <div class="chart-body">
+                    <canvas id="chart-motivos"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3>Top Motoristas com Ocorrências Registradas</h3>
+                </div>
+                <div class="chart-body">
+                    <canvas id="chart-motoristas"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- BARRA DE FILTROS E PESQUISA -->
+        <section class="filter-section">
+            <div class="filter-bar">
+                <div class="search-box">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" id="filtro-pesquisa" placeholder="Buscar por Motorista, Placa ou Trip...">
+                </div>
+
+                <div class="filter-selects">
+                    <select id="filtro-motivo">
+                        <option value="">Todos os Motivos</option>
+                    </select>
+
+                    <select id="filtro-status">
+                        <option value="">Todos os Status</option>
+                        <option value="DELAY">Atrasos (DELAY)</option>
+                        <option value="EARLY">Adiantados (EARLY)</option>
+                        <option value="ON TIME">No Horário (ON TIME)</option>
+                    </select>
+
+                    <button id="btn-limpar-filtros" class="btn-secondary" title="Limpar Filtros">Limpar</button>
+                    <button id="btn-exportar-csv" class="btn-success" title="Exportar tabela filtrada">Exportar Excel</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- TABELA DE RESULTADOS -->
+        <section class="table-section">
+            <div class="table-card">
+                <div class="table-header">
+                    <h3>Viagens com Ocorrência (<span id="contador-tabela">0</span> registros)</h3>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>Nº da Viagem (Trip)</th>
+                                <th>Motorista</th>
+                                <th>Placas</th>
+                                <th>Rota (Origem ➔ Destino)</th>
+                                <th>Motivo da Ocorrência</th>
+                                <th>Status Destino</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-corpo">
+                            <tr>
+                                <td colspan="7" class="empty-state">
+                                    Nenhuma planilha carregada ainda. Selecione ou arraste a planilha acima.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>© 2026 AJBorges Transporte & Logística • Torre de Controle Operacional</p>
+    </footer>
+
+    <!-- Script Próprio -->
+    <script src="app.js"></script>
+</body>
+</html>
