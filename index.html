@@ -9,30 +9,56 @@
     <!-- Font Inter do Google -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- SheetJS (Lê Excel .xlsx diretamente no navegador) -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- Chart.js para os gráficos -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS e Chart.js locais (compatível com extensões Edge/Chrome) -->
+    <script src="xlsx.full.min.js"></script>
+    <script src="chart.umd.min.js"></script>
 </head>
 <body>
     <!-- HEADER -->
     <header class="topbar">
         <div class="topbar-container">
             <div class="brand">
-                <div class="brand-logo">AJB</div>
+                <div class="brand-logo">AJ</div>
                 <div class="brand-info">
-                    <h1>AJBorges • Gestão de Ocorrências</h1>
-                    <p>Monitoramento de Viagens, Atrasos e Operações Linehaul</p>
+                    <h1>AJBorges • Torre de Controle Operacional</h1>
+                    <p>Gestão Linehaul • Ocorrências, Atrasos e Base DBLH</p>
                 </div>
             </div>
             <div class="header-actions">
+                <button id="btn-atualizar-auto" class="btn-refresh" title="Sincronizar dados em tempo real">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M23 4v6h-6"></path>
+                        <path d="M1 20v-6h6"></path>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    <span>Atualizar</span>
+                </button>
                 <span id="data-status-badge" class="badge-status-offline">Aguardando Planilha</span>
             </div>
         </div>
     </header>
 
+    <!-- NAVEGAÇÃO DE ABAS DO DASHBOARD -->
+    <nav class="main-tabs-nav">
+        <div class="main-tabs-container">
+            <button id="tab-nav-ocorrencias" class="main-nav-tab active">
+                <span class="tab-icon">🚨</span>
+                <span class="tab-text">Painel de Ocorrências & Atrasos</span>
+                <span id="badge-contador-ocorrencias" class="tab-badge tab-badge-danger">0</span>
+            </button>
+            <button id="tab-nav-dblh" class="main-nav-tab">
+                <span class="tab-icon">📋</span>
+                <span class="tab-text">Base DBLH Completa (Todas as 33 Colunas)</span>
+                <span id="badge-contador-dblh" class="tab-badge tab-badge-primary">0</span>
+            </button>
+        </div>
+    </nav>
+
     <main class="main-container">
+        <!-- =============================================================== -->
+        <!-- ABA 1: PAINEL DE OCORRÊNCIAS & ATRASOS                         -->
+        <!-- =============================================================== -->
+        <div id="view-ocorrencias" class="tab-content active">
         <!-- ÁREA DE CARREGAMENTO DE ARQUIVO -->
         <section class="upload-section">
             <div class="upload-card" id="drop-zone">
@@ -45,7 +71,7 @@
                 </div>
                 <div class="upload-texts">
                     <h3>Carregar Planilha do Excel (.xlsx / .csv)</h3>
-                    <p>Arraste e solte o arquivo <strong>DBLH_AJ BORGES</strong> aqui ou clique no botão abaixo</p>
+                    <p>Arraste e solte o arquivo <strong>DBLH_AJ BORGES</strong> aqui ou use o link em tempo real</p>
                 </div>
                 <label for="excel-file-input" class="btn-primary">
                     <span>Selecionar Planilha</span>
@@ -58,11 +84,29 @@
         <section class="kpi-grid">
             <div class="kpi-card">
                 <div class="kpi-header">
-                    <span class="kpi-title">Total de Ocorrências</span>
+                    <span class="kpi-title">Total Ocorrências</span>
                     <span class="kpi-icon icon-danger">🚨</span>
                 </div>
                 <div class="kpi-value" id="kpi-total-ocorrencias">0</div>
-                <div class="kpi-sub">Viagens com desvios ou paradas</div>
+                <div class="kpi-sub">Total de desvios registrados</div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-title">Ocorrências Hoje</span>
+                    <span class="kpi-icon icon-warning">📅</span>
+                </div>
+                <div class="kpi-value" id="kpi-hoje-ocorrencias" style="color: #2563eb;">0</div>
+                <div class="kpi-sub" id="kpi-hoje-sub">Ocorrências na data de hoje</div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-title">Motorista + Ocorrências</span>
+                    <span class="kpi-icon icon-neutral">🏆</span>
+                </div>
+                <div class="kpi-value kpi-driver-name" id="kpi-top-motorista">-</div>
+                <div class="kpi-sub" id="kpi-top-motorista-sub">Condutor com maior incidência</div>
             </div>
 
             <div class="kpi-card">
@@ -70,31 +114,33 @@
                     <span class="kpi-title">Atrasos (DELAY)</span>
                     <span class="kpi-icon icon-warning">⏱️</span>
                 </div>
-                <div class="kpi-value" id="kpi-total-delay">0</div>
-                <div class="kpi-sub">Viagens fora da janela de entrega</div>
+                <div class="kpi-value" id="kpi-total-delay" style="color: #ef4444;">0</div>
+                <div class="kpi-sub">Viagens fora da janela</div>
             </div>
 
             <div class="kpi-card">
                 <div class="kpi-header">
-                    <span class="kpi-title">Paradas Excedidas / Abastecimento</span>
+                    <span class="kpi-title">Paradas / Abastecimento</span>
                     <span class="kpi-icon icon-info">⛽</span>
                 </div>
                 <div class="kpi-value" id="kpi-total-paradas">0</div>
-                <div class="kpi-sub">Paradas não programadas ou longas</div>
-            </div>
-
-            <div class="kpi-card">
-                <div class="kpi-header">
-                    <span class="kpi-title">Motoristas com Ocorrência</span>
-                    <span class="kpi-icon icon-neutral">👤</span>
-                </div>
-                <div class="kpi-value" id="kpi-total-motoristas">0</div>
-                <div class="kpi-sub">Condutores envolvidos nas viagens</div>
+                <div class="kpi-sub">Paradas não programadas</div>
             </div>
         </section>
 
         <!-- SEÇÃO DE GRÁFICOS -->
         <section class="charts-grid">
+            <!-- Gráfico de Ocorrências por Dia (Evolução Diária) -->
+            <div class="chart-card full-width">
+                <div class="chart-header">
+                    <h3>Ocorrências por Dia (Linha do Tempo Diária)</h3>
+                </div>
+                <div class="chart-body" style="height: 300px;">
+                    <canvas id="chart-diario"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico de Motivos -->
             <div class="chart-card">
                 <div class="chart-header">
                     <h3>Principais Motivos de Ocorrências</h3>
@@ -104,12 +150,68 @@
                 </div>
             </div>
 
+            <!-- Gráfico de Motoristas -->
             <div class="chart-card">
                 <div class="chart-header">
                     <h3>Top Motoristas com Ocorrências Registradas</h3>
                 </div>
                 <div class="chart-body">
                     <canvas id="chart-motoristas"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- GRÁFICO / RESUMO DOS ÚLTIMOS 5 DIAS -->
+        <section class="summary-5days-section">
+            <div class="summary-card">
+                <div class="summary-header">
+                    <div class="summary-title-group">
+                        <div class="summary-icon">📊</div>
+                        <div>
+                            <h3>Ocorrências dos Últimos 5 Dias (Evolução por Motivo)</h3>
+                            <p>Barras empilhadas com as cores de cada motivo • <strong>Clique em uma barra para abrir os detalhes</strong></p>
+                        </div>
+                    </div>
+                    <div class="summary-actions-group">
+                        <div class="view-toggle-group">
+                            <button id="btn-toggle-grafico-5dias" class="btn-toggle active" title="Exibir em Gráfico Empilhado">📊 Gráfico</button>
+                            <button id="btn-toggle-tabela-5dias" class="btn-toggle" title="Exibir em Tabela Resumo">📋 Tabela</button>
+                        </div>
+                        <div class="summary-badge-total">
+                            <span class="badge-total-label">Total nos 5 Dias:</span>
+                            <span class="badge-total-number" id="total-ultimos-5-dias">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visão 1: Gráfico de Barras Empilhadas (Padrão) -->
+                <div id="container-grafico-5dias" class="grafico-5dias-wrapper">
+                    <div style="height: 350px; position: relative;">
+                        <canvas id="chart-5dias-stacked"></canvas>
+                    </div>
+                    <div class="chart-interaction-tip">
+                        <span>💡 <strong>Dica Interativa:</strong> Clique sobre qualquer barra do dia para abrir uma janela com todos os motoristas, viagens e ocorrências detalhadas.</span>
+                    </div>
+                </div>
+
+                <!-- Visão 2: Tabela Resumo (Opcional via alternador) -->
+                <div id="container-tabela-5dias" class="table-responsive" style="display: none;">
+                    <table class="data-table table-5days">
+                        <thead>
+                            <tr>
+                                <th style="width: 160px;">Data</th>
+                                <th style="width: 140px; text-align: center;">Qtd Ocorrências</th>
+                                <th>Quais foram as Ocorrências (Motivos e Contagens)</th>
+                                <th style="width: 140px; text-align: center;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-5dias-corpo">
+                            <tr>
+                                <td colspan="4" class="empty-state">Aguardando dados da planilha...</td>
+                            </tr>
+                        </tbody>
+                        <tfoot id="tabela-5dias-foot"></tfoot>
+                    </table>
                 </div>
             </div>
         </section>
@@ -126,6 +228,14 @@
                 </div>
 
                 <div class="filter-selects">
+                    <select id="filtro-motorista" title="Filtrar por Motorista">
+                        <option value="">Todos os Motoristas</option>
+                    </select>
+
+                    <select id="filtro-data">
+                        <option value="">Todas as Datas</option>
+                    </select>
+
                     <select id="filtro-motivo">
                         <option value="">Todos os Motivos</option>
                     </select>
@@ -155,8 +265,8 @@
                             <tr>
                                 <th>Data/Hora</th>
                                 <th>Nº da Viagem (Trip)</th>
+                                <th>ID Motorista</th>
                                 <th>Motorista</th>
-                                <th>Placas</th>
                                 <th>Rota (Origem ➔ Destino)</th>
                                 <th>Motivo da Ocorrência</th>
                                 <th>Status Destino</th>
@@ -173,13 +283,353 @@
                 </div>
             </div>
         </section>
+        </div><!-- Fim do #view-ocorrencias -->
+
+        <!-- =============================================================== -->
+        <!-- ABA 2: BASE GERAL DBLH (TODAS AS 33 COLUNAS & PESQUISA COMPLETA) -->
+        <!-- =============================================================== -->
+        <div id="view-dblh" class="tab-content" style="display: none;">
+            <!-- KPIS DA BASE DBLH -->
+            <section class="dblh-kpi-grid">
+                <div class="dblh-kpi-card">
+                    <div class="dblh-kpi-icon icon-blue">📋</div>
+                    <div class="dblh-kpi-info">
+                        <span class="dblh-kpi-title">Total de Viagens na Base</span>
+                        <div class="dblh-kpi-value" id="dblh-kpi-total">0</div>
+                    </div>
+                </div>
+
+                <div class="dblh-kpi-card">
+                    <div class="dblh-kpi-icon icon-primary">🔍</div>
+                    <div class="dblh-kpi-info">
+                        <span class="dblh-kpi-title">Viagens Filtradas</span>
+                        <div class="dblh-kpi-value" id="dblh-kpi-filtradas" style="color: #2563eb;">0</div>
+                    </div>
+                </div>
+
+                <div class="dblh-kpi-card">
+                    <div class="dblh-kpi-icon icon-warning">⏳</div>
+                    <div class="dblh-kpi-info">
+                        <span class="dblh-kpi-title">Viagens Abertas</span>
+                        <div class="dblh-kpi-value" id="dblh-kpi-abertas" style="color: #d97706;">0</div>
+                    </div>
+                </div>
+
+                <div class="dblh-kpi-card">
+                    <div class="dblh-kpi-icon icon-success">✅</div>
+                    <div class="dblh-kpi-info">
+                        <span class="dblh-kpi-title">Viagens Fechadas</span>
+                        <div class="dblh-kpi-value" id="dblh-kpi-fechadas" style="color: #059669;">0</div>
+                    </div>
+                </div>
+
+                <div class="dblh-kpi-card">
+                    <div class="dblh-kpi-icon icon-danger">🚨</div>
+                    <div class="dblh-kpi-info">
+                        <span class="dblh-kpi-title">Com Ocorrência</span>
+                        <div class="dblh-kpi-value" id="dblh-kpi-ocorrencias" style="color: #dc2626;">0</div>
+                    </div>
+                </div>
+
+                <div class="dblh-kpi-card">
+                    <div class="dblh-kpi-icon icon-danger">⏱️</div>
+                    <div class="dblh-kpi-info">
+                        <span class="dblh-kpi-title">Atrasos (DELAY)</span>
+                        <div class="dblh-kpi-value" id="dblh-kpi-delays" style="color: #b91c1c;">0</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SUPER FILTROS DA BASE DBLH -->
+            <section class="dblh-filter-section">
+                <div class="dblh-filter-card">
+                    <div class="dblh-filter-header">
+                        <div class="dblh-filter-header-title">
+                            <span class="filter-header-icon">🔎</span>
+                            <div>
+                                <h3>Filtros Operacionais da Base DBLH (Todas as 33 Colunas)</h3>
+                                <p>Pesquise em qualquer campo, combine critérios operacionais ou exporte os dados</p>
+                            </div>
+                        </div>
+                        <div class="dblh-filter-actions">
+                            <button id="dblh-btn-limpar-filtros" class="btn-secondary" title="Resetar todos os filtros">
+                                <span>↺ Limpar Filtros</span>
+                            </button>
+                            <button id="dblh-btn-exportar-excel" class="btn-success" title="Exportar todas as 33 colunas das viagens filtradas para Excel (.xlsx)">
+                                <span>📥 Exportar Excel (33 Colunas)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Linha de Busca Rápida -->
+                    <div class="dblh-search-container">
+                        <div class="dblh-search-box">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                            <input type="text" id="dblh-filtro-busca" placeholder="Pesquisar por Trip, Motorista, ID, Placa, Origem, Destino, Rota, Operador...">
+                            <button id="dblh-btn-clear-search" class="dblh-clear-search-btn" title="Limpar pesquisa" style="display: none;">&times;</button>
+                        </div>
+                    </div>
+
+                    <!-- Grade de Filtros Multicritério -->
+                    <div class="dblh-filter-grid">
+                        <div class="dblh-filter-field">
+                            <label for="dblh-filtro-data">Data Agendada:</label>
+                            <select id="dblh-filtro-data">
+                                <option value="">Todas as Datas</option>
+                            </select>
+                        </div>
+
+                        <div class="dblh-filter-field">
+                            <label for="dblh-filtro-status-viagem">Status da Viagem:</label>
+                            <select id="dblh-filtro-status-viagem">
+                                <option value="">Todos os Status</option>
+                            </select>
+                        </div>
+
+                        <div class="dblh-filter-field">
+                            <label for="dblh-filtro-status-destino">Status Destino:</label>
+                            <select id="dblh-filtro-status-destino">
+                                <option value="">Todos os Status Destino</option>
+                            </select>
+                        </div>
+
+                        <div class="dblh-filter-field">
+                            <label for="dblh-filtro-status-cpt">Status CPT:</label>
+                            <select id="dblh-filtro-status-cpt">
+                                <option value="">Todos os Status CPT</option>
+                            </select>
+                        </div>
+
+                        <div class="dblh-filter-field">
+                            <label for="dblh-filtro-status-eta">Status ETA:</label>
+                            <select id="dblh-filtro-status-eta">
+                                <option value="">Todos os Status ETA</option>
+                            </select>
+                        </div>
+
+                        <div class="dblh-filter-field">
+                            <label for="dblh-filtro-ocorrencia">Possui Ocorrência?:</label>
+                            <select id="dblh-filtro-ocorrencia">
+                                <option value="">Todas as Viagens</option>
+                                <option value="COM_OCORRENCIA">⚠️ Apenas COM Ocorrência</option>
+                                <option value="SEM_OCORRENCIA">✅ Apenas SEM Ocorrência</option>
+                            </select>
+                        </div>
+
+                        <div class="dblh-filter-field">
+                            <label for="dblh-filtro-origem">Hub Origem:</label>
+                            <select id="dblh-filtro-origem">
+                                <option value="">Todas as Origens</option>
+                            </select>
+                        </div>
+
+                        <div class="dblh-filter-field">
+                            <label for="dblh-filtro-destino">Hub Destino:</label>
+                            <select id="dblh-filtro-destino">
+                                <option value="">Todos os Destinos</option>
+                            </select>
+                        </div>
+
+                        <div class="dblh-filter-field">
+                            <label for="dblh-filtro-veiculo">Tipo Veículo:</label>
+                            <select id="dblh-filtro-veiculo">
+                                <option value="">Todos os Veículos</option>
+                            </select>
+                        </div>
+
+                        <div class="dblh-filter-field">
+                            <label for="dblh-filtro-motorista">Motorista:</label>
+                            <select id="dblh-filtro-motorista">
+                                <option value="">Todos os Motoristas</option>
+                            </select>
+                        </div>
+
+                        <div class="dblh-filter-field">
+                            <label for="dblh-filtro-agencia">Agência:</label>
+                            <select id="dblh-filtro-agencia">
+                                <option value="">Todas as Agências</option>
+                            </select>
+                        </div>
+
+                        <div class="dblh-filter-field">
+                            <label for="dblh-filtro-solicitacao">Solicitado Por:</label>
+                            <select id="dblh-filtro-solicitacao">
+                                <option value="">Todos os Solicitantes</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TABELA COMPLETA COM 33 COLUNAS E PAGINAÇÃO -->
+            <section class="dblh-table-section">
+                <div class="dblh-table-card">
+                    <!-- Controles de Paginação Superior -->
+                    <div class="dblh-table-controls">
+                        <div class="dblh-records-info">
+                            <span id="dblh-contador-info">Carregando viagens...</span>
+                        </div>
+
+                        <div class="dblh-pagination-controls">
+                            <button id="dblh-btn-primeira" class="btn-pagination" title="Primeira Página">⏮️</button>
+                            <button id="dblh-btn-anterior" class="btn-pagination" title="Página Anterior">◀️ Anterior</button>
+                            <span class="pagination-page-indicator">Página <strong id="dblh-pagina-atual">1</strong> de <strong id="dblh-total-paginas">1</strong></span>
+                            <button id="dblh-btn-proxima" class="btn-pagination" title="Próxima Página">Próxima ▶️</button>
+                            <button id="dblh-btn-ultima" class="btn-pagination" title="Última Página">⏭️</button>
+                        </div>
+
+                        <div class="dblh-page-size-selector">
+                            <label for="dblh-itens-por-pagina">Exibir:</label>
+                            <select id="dblh-itens-por-pagina">
+                                <option value="50">50 por página</option>
+                                <option value="100" selected>100 por página</option>
+                                <option value="250">250 por página</option>
+                                <option value="500">500 por página</option>
+                                <option value="TODOS">Todas</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Scroll Horizontal com Cabeçalho Sticky e Coluna Trip Fixa -->
+                    <div class="dblh-table-wrapper">
+                        <table class="dblh-full-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-sticky-trip" title="Nº Viagem (Trip)">1. Trip Number</th>
+                                    <th>2. Status Viagem</th>
+                                    <th>3. Solicitado Por</th>
+                                    <th>4. Veículo Planejado</th>
+                                    <th>5. Veículo Usado</th>
+                                    <th>6. Agência</th>
+                                    <th>7. ID Motorista</th>
+                                    <th>8. Nome Motorista</th>
+                                    <th>9. Placa</th>
+                                    <th>10. Hub Origem</th>
+                                    <th>11. Hub Destino</th>
+                                    <th>12. ETA Origem Agendado</th>
+                                    <th>13. CPT Origem Agendado</th>
+                                    <th>14. ETA Destino Agendado</th>
+                                    <th>15. ID Rota</th>
+                                    <th>16. ETA Realizado</th>
+                                    <th>17. Status ETA</th>
+                                    <th>18. Ocorrência ETA</th>
+                                    <th>19. CPT Realizado</th>
+                                    <th>20. Status CPT</th>
+                                    <th>21. Ocorrência CPT</th>
+                                    <th>22. ETA Destino Realizado</th>
+                                    <th>23. Status ETA Destino</th>
+                                    <th>24. Ocorrência ETA Destino</th>
+                                    <th>25. Horário Descarga</th>
+                                    <th>26. Qtd Pedidos</th>
+                                    <th>27. Checkin Origem Op.</th>
+                                    <th>28. Checkout Origem Op.</th>
+                                    <th>29. Checkin Destino Op.</th>
+                                    <th>30. ETA Origem (Alt)</th>
+                                    <th>31. CPT Origem (Alt)</th>
+                                    <th>32. ETA Destino (Alt)</th>
+                                    <th>33. Atualização</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dblh-tabela-corpo">
+                                <tr>
+                                    <td colspan="33" class="empty-state">
+                                        Aguardando sincronização da planilha...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Controles de Paginação Inferior -->
+                    <div class="dblh-table-controls dblh-table-controls-bottom">
+                        <div class="dblh-records-info">
+                            <span id="dblh-contador-info-bottom">Carregando viagens...</span>
+                        </div>
+                        <div class="dblh-pagination-controls">
+                            <button id="dblh-btn-primeira-bottom" class="btn-pagination" title="Primeira Página">⏮️</button>
+                            <button id="dblh-btn-anterior-bottom" class="btn-pagination" title="Página Anterior">◀️ Anterior</button>
+                            <span class="pagination-page-indicator">Página <strong id="dblh-pagina-atual-bottom">1</strong> de <strong id="dblh-total-paginas-bottom">1</strong></span>
+                            <button id="dblh-btn-proxima-bottom" class="btn-pagination" title="Próxima Página">Próxima ▶️</button>
+                            <button id="dblh-btn-ultima-bottom" class="btn-pagination" title="Última Página">⏭️</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div><!-- Fim do #view-dblh -->
     </main>
+
+    <!-- MODAL DE DETALHES DO DIA (ABERTA AO CLICAR NA BARRA DO GRÁFICO) -->
+    <div id="modal-dia-ocorrencias" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <span class="modal-icon">📅</span>
+                    <div>
+                        <h3 id="modal-titulo-data">Ocorrências do Dia</h3>
+                        <p id="modal-subtitulo-data">Todos os motoristas, veículos e motivos registrados nesta data</p>
+                    </div>
+                </div>
+                <div class="modal-header-actions">
+                    <span class="badge-total-modal" id="modal-badge-total">0 Ocorrências</span>
+                    <button id="modal-btn-fechar" class="modal-close-btn" title="Fechar janela (Esc)">&times;</button>
+                </div>
+            </div>
+
+            <!-- Resumo dos Motivos no Topo da Modal -->
+            <div class="modal-motivos-wrapper">
+                <span class="modal-motivos-label">Motivos presentes neste dia:</span>
+                <div class="modal-motivos-summary" id="modal-motivos-resumo"></div>
+            </div>
+
+            <!-- Barra de Busca Rápida na Modal -->
+            <div class="modal-search-bar">
+                <div class="search-box">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" id="modal-filtro-busca" placeholder="Pesquisar por Motorista, ID, Trip ou Placa...">
+                </div>
+                <button id="modal-btn-filtrar-painel" class="btn-primary-sm" title="Filtrar esta data em todo o dashboard">
+                    <span>🎯 Filtrar no Painel Principal</span>
+                </button>
+            </div>
+
+            <!-- Tabela com todos os Motoristas e Detalhes -->
+            <div class="modal-table-responsive">
+                <table class="data-table modal-data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 110px;">ID Motorista</th>
+                            <th>Motorista</th>
+                            <th>Nº Viagem (Trip)</th>
+                            <th>Rota</th>
+                            <th>Motivo da Ocorrência</th>
+                            <th>Status Destino</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-tabela-corpo">
+                        <!-- Linhas geradas dinamicamente -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="modal-footer">
+                <span id="modal-contador-registros">0 viagens listadas</span>
+                <button id="modal-btn-fechar-rodape" class="btn-secondary">Fechar</button>
+            </div>
+        </div>
+    </div>
 
     <footer class="footer">
         <p>© 2026 AJBorges Transporte & Logística • Torre de Controle Operacional</p>
     </footer>
 
     <!-- Script Próprio -->
+    <script src="config.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
